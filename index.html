@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRIPZYY - Travel Smarter, Not Harder</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Leaflet CSS for maps -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- jsPDF for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+    <!-- Dark Mode Toggle -->
+    <div class="mode-toggle" onclick="toggleDarkMode()">
+        <span id="mode-icon">🌙</span> Dark Mode
+    </div>
+
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1 class="logo">TRIPZYY✈</h1>
+            <p class="subtitle">Travel Smarter, Not Harder</p>
+        </header>
+
+        <!-- Main Content -->
+        <main>
+            <!-- Travel Form with Enhanced Filters -->
+            <section id="travel-form" class="glass-card">
+                <h2 class="section-title">✨ Plan Your Next Adventure</h2>
+                <form id="plannerForm">
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label for="budget">💰 Budget (INR)</label>
+                            <input type="number" id="budget" name="budget" placeholder="e.g., 25000" required>
+                        </div>
+
+                        <div class="input-group">
+                            <label for="days">📅 Number of Days</label>
+                            <input type="number" id="days" name="days" min="1" max="30" placeholder="e.g., 7" required>
+                        </div>
+
+                        <div class="input-group">
+                            <label for="destination">🏖 Destination</label>
+                            <input type="text" id="destination" name="destination" placeholder="e.g., Goa, Manali, Paris" required>
+                        </div>
+
+                        <div class="input-group">
+                            <label for="people">👥 How many people are going for travel?</label>
+                            <input type="number" id="people" name="people" min="1" max="10" placeholder="e.g., 2" required>
+                            <div id="people-recommendation" class="people-recommendation"></div>
+                        </div>
+
+                        <!-- Travel Calendar with transparent aesthetic design -->
+                        <div class="input-group calendar-group">
+                            <label for="startDate">📅 Start Date</label>
+                            <input type="date" id="startDate" name="startDate" class="aesthetic-input">
+                        </div>
+
+                        <div class="input-group calendar-group">
+                            <label for="endDate">📅 End Date</label>
+                            <input type="date" id="endDate" name="endDate" class="aesthetic-input">
+                        </div>
+                    </div>
+
+                    <div class="button-group">
+                        <button type="submit" class="btn btn-primary" id="generateBtn">
+                            <span class="btn-text">Generate Plan</span>
+                            <span class="btn-icon">🚀</span>
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="surpriseMe()">
+                            <span class="btn-text">Surprise Me</span>
+                            <span class="btn-icon">🎲</span>
+                        </button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- Loading State -->
+            <section id="loading" class="glass-card loading-hidden">
+                <div class="loading-content">
+                    <div class="loading-spinner"></div>
+                    <p>✨ Crafting your perfect itinerary...</p>
+                </div>
+            </section>
+
+            <!-- Travel Plan Results -->
+            <section id="results" class="results-hidden">
+                <!-- Destination Header with Enhanced Photo Gallery -->
+                <div id="destination-header" class="glass-card destination-header">
+                    <div class="destination-image">
+                        <img id="destination-photo" src="" alt="Destination" />
+                        <div class="destination-overlay">
+                            <h2 id="destination-name"></h2>
+                            <p id="destination-type"></p>
+                            <!-- Photo Gallery Button -->
+                            <button class="btn-mini" onclick="openPhotoGallery()" style="margin-top: 12px;">
+                                📸 View Gallery
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Season Info Card -->
+                <div id="season-info-card" class="glass-card" style="display: none;">
+                    <h3 class="card-title">🗓 Season Information</h3>
+                    <div id="season-info" class="season-container">
+                        <!-- Season info will be inserted here -->
+                    </div>
+                </div>
+
+                <!-- Enhanced Weather with 3-day Forecast -->
+                <div id="weather-card" class="glass-card">
+                    <h3 class="card-title">🌤 Weather Forecast</h3>
+                    <div id="weather-info" class="weather-container">
+                        <!-- Current weather and 3-day forecast will be inserted here -->
+                    </div>
+                </div>
+
+                <!-- Budget Card -->
+                <div id="budget-card" class="glass-card">
+                    <h3 class="card-title">💸 Smart Budget Breakdown</h3>
+                    
+                    <div id="budget-breakdown" class="budget-grid">
+                        <!-- Budget data will be inserted here -->
+                    </div>
+
+                    <!-- Budget Details Modal -->
+                    <div id="budget-modal" class="budget-modal budget-modal-hidden">
+                        <div class="budget-modal-content">
+                            <div class="budget-modal-header">
+                                <h3 id="modal-category-title">Category Details</h3>
+                                <button class="budget-modal-close" onclick="closeBudgetModal()">✕</button>
+                            </div>
+                            <div id="modal-category-content" class="budget-modal-body">
+                                <!-- Detailed breakdown will be inserted here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hotel & Stay Recommendations -->
+                <div id="hotels-card" class="glass-card">
+                    <h3 class="card-title">🏨 Recommended Hotels & Stays</h3>
+                    <div id="hotels-grid" class="hotels-grid">
+                        <!-- Hotels will be inserted here -->
+                    </div>
+                </div>
+
+                <!-- Tourist Attractions - Updated without Load Details button -->
+                <div id="attractions-card" class="glass-card">
+                    <h3 class="card-title">🏛 Must-Visit Attractions</h3>
+                    <div id="attractions-grid" class="attractions-grid">
+                        <!-- Attractions will be inserted here automatically -->
+                    </div>
+                </div>
+
+                <!-- Simplified Map Section -->
+                <div id="map-card" class="glass-card">
+                    <h3 class="card-title">🗺 Interactive Location Map</h3>
+                    <div id="location-map" class="location-map">
+                        <!-- Map will be rendered here -->
+                    </div>
+                    <div class="map-legend">
+                        <div class="legend-item">
+                            <span class="legend-marker destination-marker"></span>
+                            <span>Main Destination</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-marker attraction-marker"></span>
+                            <span>Must-Visit Attractions</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-marker hotel-marker"></span>
+                            <span>Recommended Hotels</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Enhanced Travel Tips with Local Info -->
+                <div id="tips-card" class="glass-card">
+                    <h3 class="card-title">💡 Local Tips & Safety Guide</h3>
+                    <div class="tips-container">
+                        <div class="tips-section">
+                            <h4 class="tips-title">🍜 Local Food Must-Try</h4>
+                            <ul id="local-food" class="tips-list">
+                                <!-- Local food recommendations -->
+                            </ul>
+                        </div>
+                        <div class="tips-section">
+                            <h4 class="tips-title">🛡 Safety Tips</h4>
+                            <ul id="safety-tips" class="tips-list">
+                                <!-- Safety tips -->
+                            </ul>
+                        </div>
+                        <div class="tips-section">
+                            <h4 class="tips-title">📅 Best Time to Visit</h4>
+                            <div id="best-time" class="best-time-info">
+                                <!-- Best time info -->
+                            </div>
+                        </div>
+                        <div class="tips-section">
+                            <h4 class="tips-title">✅ Budget-Friendly Spots</h4>
+                            <ul id="budget-friendly" class="tips-list">
+                                <!-- Budget-friendly tips will be inserted here -->
+                            </ul>
+                        </div>
+                        <div class="tips-section">
+                            <h4 class="tips-title">❌ Avoid These (Overpriced)</h4>
+                            <ul id="avoid-spots" class="tips-list">
+                                <!-- Spots to avoid will be inserted here -->
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Enhanced Action Buttons with Save & Share -->
+                <div class="action-buttons">
+                    <button class="btn btn-success" onclick="saveItineraryPDF()">
+                        <span class="btn-text">Save as PDF</span>
+                        <span class="btn-icon">📄</span>
+                    </button>
+                    <button class="btn btn-primary" onclick="shareViaWhatsApp()">
+                        <span class="btn-text">Share WhatsApp</span>
+                        <span class="btn-icon">📱</span>
+                    </button>
+                    <button class="btn btn-secondary" onclick="shareViaEmail()">
+                        <span class="btn-text">Share Email</span>
+                        <span class="btn-icon">📧</span>
+                    </button>
+                    <button class="btn btn-accent" onclick="shareOnSocial()">
+                        <span class="btn-text">Share Social</span>
+                        <span class="btn-icon">📲</span>
+                    </button>
+                    <button class="btn btn-secondary" onclick="planNewTrip()">
+                        <span class="btn-text">Plan New Trip</span>
+                        <span class="btn-icon">🆕</span>
+                    </button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Photo Gallery Modal -->
+    <div id="photo-gallery-modal" class="photo-modal photo-modal-hidden">
+        <div class="photo-modal-content">
+            <div class="photo-modal-header">
+                <h3 id="photo-gallery-title">Photo Gallery</h3>
+                <button class="photo-modal-close" onclick="closePhotoGallery()">✕</button>
+            </div>
+            <div class="photo-gallery-grid" id="photo-gallery-grid">
+                <!-- Photos will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Chatbot -->
+    <div id="chatbot-toggle" class="chatbot-toggle" onclick="toggleChatbot()">
+        <span class="chatbot-icon">💬</span>
+    </div>
+
+    <!-- Chatbot Window -->
+    <div id="chatbot-window" class="chatbot-window chatbot-hidden">
+        <div class="chatbot-header">
+            <h3>🤖 TravelBot AI</h3>
+            <button class="chatbot-close" onclick="toggleChatbot()">✕</button>
+        </div>
+        <div id="chatbot-messages" class="chatbot-messages">
+            <div class="bot-message">
+                <p>Hey there! 👋 I'm your AI travel assistant!</p>
+            </div>
+            
+
+        </div>
+        <div class="chatbot-input">
+            <input type="text" id="chatbot-input" placeholder="Ask about your destination..." onkeypress="handleChatInput(event)">
+            <button onclick="sendChatMessage()">Send</button>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="toast toast-hidden">
+        <span id="toast-message"></span>
+    </div>
+
+    <!-- Leaflet JS for maps -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
