@@ -219,8 +219,9 @@ const HOTEL_RECOMMENDATIONS = {
 const WEATHER_API_KEY = "9a4acb8d47cf4c86a5943744250604";
 const PIXABAY_API_KEY = "49779190-56ac3b8e27bb9397dd241c851";
 
-// UPDATED: Groq AI API Key (using provided key)
-const GROQ_API_KEY = "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";
+// AI API Keys
+const GEMINI_API_KEY = "AIzaSyBaWxHrhQIOJ0G_WkJKaiblhB0ztCUaKCk";
+const GROQ_API_KEY = "";
 
 // DOM Elements
 const form = document.getElementById('plannerForm');
@@ -1729,48 +1730,89 @@ function addChatMessage(message, sender) {
     return messageId;
 }
 
-// Groq AI API Integration (using provided API key)
 async function getGroqAIResponse(query) {
+    const contextualQuery = currentTripData.destination 
+        ? `I'm planning a trip to ${currentTripData.destination} for ${currentTripData.people || 'some'} people. ${query}` 
+        : query;
+
+    const systemPrompt = 'You are TravelBot, an expert travel assistant for TRIPZYY app. Give REAL, specific, helpful travel information. Include actual place names, food names, costs in INR, and practical tips. Never say to check any app or section. Keep responses under 120 words. Be friendly and use 1-2 relevant emojis.';
+
     try {
-        // Add destination and people context if available
-        const contextualQuery = currentTripData.destination 
-            ? `I'm planning a trip to ${currentTripData.destination} for ${currentTripData.people || 'some'} ${(currentTripData.people === 1) ? 'person' : 'people'}. ${query}` 
-            : query;
-        
-        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${GROQ_API_KEY}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                model: 'mixtral-8x7b-32768', // Groq's fast model
-                messages: [
-                    {
-                        role: 'system',
-                        content: 'You are a helpful travel assistant for TRIPZYY. Provide concise, practical travel advice and information. Keep responses under 150 words and be enthusiastic about travel. Focus on budget-friendly tips and group travel suggestions.'
-                    },
-                    {
-                        role: 'user',
-                        content: contextualQuery
-                    }
-                ],
-                max_tokens: 150,
-                temperature: 0.7
-            })
-        });
-        
-        if (!response.ok) {
-            throw new Error('Groq API error');
+        // Try Gemini API
+        const geminiResponse = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    system_instruction: { parts: [{ text: systemPrompt }] },
+                    contents: [{ role: 'user', parts: [{ text: contextualQuery }] }],
+                    generationConfig: { maxOutputTokens: 200, temperature: 0.7 }
+                })
+            }
+        );
+
+        if (geminiResponse.ok) {
+            const data = await geminiResponse.json();
+            if (data.candidates && data.candidates[0]) {
+                return data.candidates[0].content.parts[0].text.trim();
+            }
         }
-        
-        const data = await response.json();
-        return data.choices[0].message.content.trim();
-        
+
+        const errData = await geminiResponse.json().catch(() => ({}));
+        console.error('Gemini failed:', geminiResponse.status, errData);
+        throw new Error('Gemini failed: ' + geminiResponse.status);
+
     } catch (error) {
-        console.error('Groq API error:', error);
-        return getFallbackResponse(query);
+        console.error('AI Error:', error);
+        // Smart fallback with real info
+        return getSmartFallback(query, currentTripData.destination);
     }
+}
+
+function getSmartFallback(query, destination) {
+    const q = query.toLowerCase();
+    const dest = destination || 'your destination';
+    
+    if (q.includes('food') || q.includes('eat') || q.includes('restaurant')) {
+        const foodMap = {
+            'jaipur': '🍽️ Jaipur must-try: Dal Baati Churma, Pyaaz Kachori, Ghewar, Laal Maas. Best spots: Laxmi Misthan Bhandar, Chokhi Dhani (₹800/person), Rawat Misthan Bhandar for kachoris at ₹20!',
+            'goa': '🍽️ Goa must-try: Fish Curry Rice, Prawn Balchão, Bebinca, Feni. Best areas: Panjim market, Baga beach shacks (₹300-600/meal). Avoid hotel restaurants — too pricey!',
+            'manali': '🍽️ Manali must-try: Siddu, Dham, Trout fish, Thukpa. Try Johnson Cafe or Cafe 1947. Budget meals available at ₹150-250 at local dhabas.',
+            'delhi': '🍽️ Delhi must-try: Chole Bhature (Sita Ram, ₹80), Paranthe (Chandni Chowk, ₹60), Nihari, Kebabs at Karim\'s. Street food at Connaught Place!',
+            'mumbai': '🍽️ Mumbai must-try: Vada Pav (₹15), Pav Bhaji at Juhu beach, Bombay Sandwich, Misal Pav. Visit Mohammed Ali Road for amazing kebabs!'
+        };
+        for (const [city, info] of Object.entries(foodMap)) {
+            if (dest.toLowerCase().includes(city) || q.includes(city)) return info;
+        }
+        return `🍽️ For ${dest}: Try local street food markets for authentic taste at 1/3rd the price. Ask locals for hidden gems — they always know the best cheap eats!`;
+    }
+    
+    if (q.includes('budget') || q.includes('cost') || q.includes('price') || q.includes('cheap')) {
+        return `💰 Budget tips for ${dest}: Book accommodation 2-3 weeks early, use local buses/autos instead of taxis (save 60%), eat at local dhabas (₹80-150/meal vs ₹400+ at restaurants), visit attractions in morning to avoid rush.`;
+    }
+    
+    if (q.includes('hotel') || q.includes('stay') || q.includes('hostel')) {
+        return `🏨 For ${dest}: Budget hostels ₹400-800/night, mid-range hotels ₹1200-2500/night. Book via MakeMyTrip or Goibibo for deals. Homestays are great value and give local experience!`;
+    }
+    
+    if (q.includes('weather') || q.includes('climate') || q.includes('season')) {
+        return `🌤️ Check the weather card above for live forecast! Generally, avoid peak summer (May-Jun) and peak monsoon for hill stations. Oct-Mar is ideal for most Indian destinations.`;
+    }
+    
+    if (q.includes('transport') || q.includes('travel') || q.includes('reach') || q.includes('how to go')) {
+        return `🚌 Getting to ${dest}: Compare flights on Google Flights, book trains on IRCTC 60 days in advance for best prices. Local transport: use autos/buses — much cheaper than Ola/Uber for short distances!`;
+    }
+    
+    if (q.includes('attraction') || q.includes('visit') || q.includes('place') || q.includes('see')) {
+        return `🏛️ For ${dest}: Most monuments are cheapest early morning. Get a local guide for ₹200-500 (way better than audio guides). Many temples and parks are FREE — check before paying agents!`;
+    }
+    
+    if (q.includes('safe') || q.includes('safety') || q.includes('scam')) {
+        return `🛡️ Safety tips for ${dest}: Always use prepaid autos/cabs from official booths. Don't trust random "helpful" strangers near tourist spots. Keep digital copies of all IDs. Share your location with family!`;
+    }
+    
+    return `✈️ Great question about ${dest}! Pro tips: Travel during shoulder season (1 month before/after peak) for 40% lower prices. Always bargain at markets, use Google Maps offline, and carry small change for street food!`;
 }
 
 function getFallbackResponse(query) {
@@ -1979,47 +2021,4 @@ if (document.readyState === 'loading') {
     lazyLoadImages();
     
 }
-// Chatbot functionality - ADD THIS TO YOUR EXISTING script.js
-async function sendChatMessage() {
-    const input = document.getElementById('chatbot-input');
-    const messagesContainer = document.getElementById('chatbot-messages');
-    const message = input.value.trim();
-    
-    if (!message) return;
-
-    // Add user message
-    const userMessage = document.createElement('div');
-    userMessage.className = 'chat-message user-message';
-    userMessage.innerHTML = `<p>${message}</p>`;
-    messagesContainer.appendChild(userMessage);
-    input.value = '';
-
-    // Get destination context
-    const destination = document.getElementById('destination')?.value || 
-                       document.getElementById('destination-name')?.textContent || '';
-
-    try {
-        const response = await fetch('/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message, destination })
-        });
-
-        const data = await response.json();
-        
-        const botMessage = document.createElement('div');
-        botMessage.className = 'chat-message bot-message';
-        botMessage.innerHTML = `<p>${data.message}</p>`;
-        messagesContainer.appendChild(botMessage);
-    } catch (error) {
-        console.error('Chat error:', error);
-    }
-
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-}
-
-function handleChatInput(event) {
-    if (event.key === 'Enter') {
-        sendChatMessage();
-    }
-}
+// Chatbot initialized above
